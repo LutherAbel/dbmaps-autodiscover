@@ -1,0 +1,9 @@
+# ground-truth databases are fetched, not committed (third-party, large)
+data-raw/*.sqlite
+data-raw/*.db
+
+# R session cruft
+.Rhistory
+.RData
+.Rproj.user
+*.Rout
