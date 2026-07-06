@@ -68,10 +68,17 @@ passes into `map_join_paths()` ✓ · one command ✓ · deps in budget ✓
   containment without materializing full value sets.
 
 ## Upstream finding (worth reporting to DBmaps)
-`map_join_paths(registry, data_list=northwind)` **segfaults** (R exit 139) — its Mode 2
-discovery is not robust to certain column types/data. This module's Mode-1 registry path
-is unaffected. Reproducer: load `data-raw/northwind.db`, build any registry, call with
-`data_list`.
+`map_join_paths(registry, data_list=...)` throws **`Error: Unsupported type raw`** on any
+database with BLOB columns: RSQLite returns BLOBs as `blob` class (vctrs) list-columns,
+and the scanner's `unique()`/`anyDuplicated()` dispatch to vctrs methods that do not
+support raw. Mode 2 is therefore unusable on such databases (e.g. Northwind via
+`Employees$Photo`). Self-contained reproducer: `scratch/reproducer.R`; two-line core:
+`anyDuplicated(blob::blob(as.raw(1:4)))`. Fix confirmed: skip list columns in the scanner.
+This module's Mode-1 registry path is unaffected.
+
+Correction note: an earlier version of this document reported this as a segfault
+(exit 139). Bisection showed the segfault was an artifact of invoking R via multi-line
+`Rscript -e` on Windows (crashes before executing any user code) — not a DBmaps defect.
 
 ## Files
 - `R/discover.R` — `discover_joins()` (join detection)

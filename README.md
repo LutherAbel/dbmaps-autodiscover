@@ -73,9 +73,16 @@ See [`DESIGN.md`](DESIGN.md) for the full design note and critique, and
 
 ## Upstream finding
 
-`map_join_paths(registry, data_list = northwind)` **segfaults** (R exit 139): DBmaps'
-data-driven discovery is not robust to certain column types. This module's metadata path
-is unaffected. Reproducer in `DESIGN.md`.
+`map_join_paths(registry, data_list = ...)` fails with **`Error: Unsupported type raw`**
+on any database containing BLOB columns (e.g. Northwind's `Employees$Photo`): DBI/RSQLite
+returns BLOBs as `blob` class columns (vctrs-based), and `unique()`/`anyDuplicated()` in
+the scanner dispatch to vctrs methods that do not support the raw type. This makes the
+data-driven mode unusable on such databases. A self-contained reproducer is in
+[`scratch/reproducer.R`](scratch/reproducer.R); a type guard (`is.list(col) -> skip`)
+fixes it. This module's metadata path is unaffected.
+
+(An earlier note here reported a segfault; that turned out to be an artifact of our own
+R invocation method, not DBmaps — the deterministic upstream failure is the error above.)
 
 ## Status
 
