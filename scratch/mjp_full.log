@@ -1,0 +1,6 @@
+start variant=full
+loaded 13 tables
+metadata built; calling map_join_paths with data_list ...
+R-ERROR: Unsupported type raw
+returned: NULL (caught R error)
+DONE

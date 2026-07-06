@@ -80,9 +80,16 @@ demo tables. **Accuracy criteria met.**
 100+ tables within budget ✓. 1000-table time shows the O(tables²) candidate loop
 (memory stays flat); fix = hash-index parent keys by expected child-name form.
 
-## Upstream finding
-`map_join_paths(registry, data_list=northwind.db)` **segfaults** (R exit 139): DBmaps'
-Mode 2 is not robust to some column types. Our Mode-1 registry path is unaffected.
+## Upstream finding (corrected 2026-07-07)
+`map_join_paths(registry, data_list=...)` throws `Error: Unsupported type raw` on BLOB
+columns (RSQLite `blob`/vctrs list-columns; `unique()`/`anyDuplicated()` dispatch to
+vctrs, which rejects raw). Deterministic; reproducer in `scratch/reproducer.R`. Our
+Mode-1 registry path is unaffected.
+The previously-logged segfault (exit 139) was bisected to our own invocation method
+(multi-line `Rscript -e` on Windows segfaults before executing user code: a pure
+`x <- 1:10` loop crashes identically) — not a DBmaps defect. Evidence: verbatim rerun
+of the original crashing command = 10/10 exit 139; same logic as single-line `-e` or a
+script file = 0 crashes; empty progress log shows death before first statement.
 
 ## STOP — all success criteria met by measurement (stopping rule #1).
 prec 1.000>0.90 · recall 0.848>0.80 · effort 94.1%>70% · 100+ tbl in budget ·

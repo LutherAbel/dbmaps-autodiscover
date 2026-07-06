@@ -1,0 +1,6 @@
+start variant=noblob
+loaded 13 tables
+list-columns dropped
+metadata built; calling map_join_paths with data_list ...
+returned: 143 rows
+DONE

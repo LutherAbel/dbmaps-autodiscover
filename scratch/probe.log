@@ -1,0 +1,31 @@
+script started
+libs loaded
+connected
+tables: Categories, CustomerCustomerDemo, CustomerDemographics, Customers, Employees, EmployeeTerritories, Order Details, Orders, Products, Regions, Shippers, Suppliers, Territories
+reading: Categories
+  ok rows=8  LIST-COLS: Picture
+reading: CustomerCustomerDemo
+  ok rows=0
+reading: CustomerDemographics
+  ok rows=0
+reading: Customers
+  ok rows=93
+reading: Employees
+  ok rows=9  LIST-COLS: Photo
+reading: EmployeeTerritories
+  ok rows=49
+reading: Order Details
+  ok rows=609283
+reading: Orders
+  ok rows=16282
+reading: Products
+  ok rows=77
+reading: Regions
+  ok rows=4
+reading: Shippers
+  ok rows=3
+reading: Suppliers
+  ok rows=29
+reading: Territories
+  ok rows=53
+ALL TABLES READ OK

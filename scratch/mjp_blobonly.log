@@ -1,0 +1,7 @@
+start variant=blobonly
+loaded 13 tables
+kept blob tables + 2 small
+metadata built; calling map_join_paths with data_list ...
+R-ERROR: Unsupported type raw
+returned: NULL (caught R error)
+DONE
