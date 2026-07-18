@@ -1,18 +1,12 @@
-# Auto-discovery of joinable column pairs and DBmaps-compatible metadata.
-#
-# Precision-first design, derived from measured baseline/iteration failures:
-#   * A join TARGET must be a unique, id-named key.
-#   * A real FK's child column NAME points at its parent. Two name links:
-#       - column link  (album_id == album_id, original_language_id ~ language_id)
-#         valid cross-table AND self-referential.
-#       - table  link  (customerid ~ table customers) valid CROSS-table only;
-#         allowing it within a table makes a table's own PK match its sibling
-#         id columns (the self-table false positives).
-#   * Value CONTAINMENT gates every match (robust where DBmaps Mode 2's strict
-#     ==1.0 breaks on NULLs / orphan rows).
-#   * Among value-contained, name-linked candidates, table-name affinity
-#     (store_id -> table store, not staff) picks the right parent.
-suppressMessages({library(data.table); library(stringdist)})
+# Auto-discovery of joinable column pairs. Logic mirrors the upstream PR file
+# (DBmaps_fork/R/discover_metadata.R) so benchmark numbers describe the PR:
+#   * parent keys: unique, id-named columns
+#   * name gate: child name points at parent (equal / suffix >=4 / underscore
+#     boundary for short keys / singularized table entity, cross-table only)
+#   * value containment >= tau decides joinability; names never suffice alone
+#   * alias_map: semantic-name escape hatch; opens the name gate only
+#   * list-columns (BLOBs) are excluded at profiling time
+suppressMessages(library(data.table))
 
 .empty_pairs <- function()
   data.table(table_from = character(), col_from = character(),
@@ -20,28 +14,40 @@ suppressMessages({library(data.table); library(stringdist)})
 
 .looks_like_id <- function(col) grepl("(^id$)|(_id$)|([a-z0-9]id$)", tolower(col))
 
-# child column name matches the parent COLUMN (valid within or across tables)
-.col_name_link <- function(cc, pc) cc == pc || (nchar(pc) >= 4 && endsWith(cc, pc))
+# Dictionary-free singularization: ies -> y, sibilant + es, plain s.
+.singularize <- function(x) {
+  x <- tolower(x)
+  if (endsWith(x, "ies")) return(sub("ies$", "y", x))
+  if (grepl("(ss|x|z|ch|sh)es$", x)) return(sub("es$", "", x))
+  sub("s$", "", x)
+}
 
-# child column name matches the parent TABLE's entity (cross-table only)
-.table_name_link <- function(cc, parent_table) {
-  ent   <- sub("s$", "", tolower(parent_table))
+.name_links_to_parent <- function(child_col, parent_col, parent_table, same_table) {
+  cc <- tolower(child_col); pc <- tolower(parent_col)
+  if (cc == pc) return(TRUE)
+  if (nchar(pc) >= 4 && endsWith(cc, pc)) return(TRUE)          # bare suffix
+  if (nchar(pc) >= 2 && endsWith(cc, paste0("_", pc))) return(TRUE)  # _uid form
+  if (same_table) return(FALSE)
+  ent <- .singularize(parent_table)
   forms <- c(paste0(ent, "id"), paste0(ent, "_id"))
-  (cc %in% forms) ||
-    any(nchar(forms) >= 5 & vapply(forms, function(f) endsWith(cc, f), logical(1)))
+  if (cc %in% forms) return(TRUE)
+  any(nchar(forms) >= 5 & vapply(forms, function(f) endsWith(cc, f), logical(1)))
 }
 
 .profile_table <- function(dt) {
   lapply(names(dt), function(cn) {
-    v  <- dt[[cn]]; v <- v[!is.na(v)]
-    cv <- as.character(v); uv <- unique(cv)
+    v <- dt[[cn]]
+    if (is.list(v))
+      return(list(col = cn, set = character(0), n_distinct = 0L, is_unique = FALSE))
+    v <- v[!is.na(v)]
+    uv <- unique(as.character(v))
     list(col = cn, set = uv, n_distinct = length(uv),
-         is_unique = length(uv) == length(cv) && length(cv) > 0)
+         is_unique = length(uv) == length(v) && length(v) > 0)
   })
 }
 
 # Returns data.table(table_from, col_from, table_to, col_to) of FK->PK joins.
-discover_joins <- function(db, tau = 0.95, min_card = 2) {
+discover_joins <- function(db, tau = 0.95, min_card = 2, alias_map = list()) {
   tn   <- names(db$data)
   prof <- lapply(db$data, .profile_table); names(prof) <- tn
 
@@ -54,24 +60,23 @@ discover_joins <- function(db, tau = 0.95, min_card = 2) {
   best <- list()  # one best parent per (child table, child col): FKs are functional
   for (ct in tn) for (cc in prof[[ct]]) {
     if (cc$n_distinct < 1) next
-    cc_l <- tolower(cc$col)
+    ai <- match(tolower(cc$col), tolower(names(alias_map)))   # case-insensitive
+    eff_col <- if (!is.na(ai)) alias_map[[ai]] else cc$col
+    cc_l <- tolower(eff_col)
     for (pk in pkeys) {
       same_tbl <- pk$table == ct
       if (same_tbl && pk$col == cc$col) next
-      pc_l <- tolower(pk$col)
-      link <- .col_name_link(cc_l, pc_l) || (!same_tbl && .table_name_link(cc_l, pk$table))
-      if (!link) next
+      if (!.name_links_to_parent(eff_col, pk$col, pk$table, same_tbl)) next
       inter <- length(intersect(cc$set, pk$set))
-      exact <- identical(cc_l, pc_l)
+      exact <- identical(cc_l, tolower(pk$col))
       if (inter < (if (exact) 1 else 2)) next
       containment <- inter / cc$n_distinct
       if (containment < tau) next
-      ent      <- sub("s$", "", tolower(pk$table))
+      ent      <- .singularize(pk$table)
       base     <- sub("_?id$", "", cc_l)
       affinity <- (base == ent) || (nchar(ent) >= 3 && startsWith(cc_l, ent))
-      nsim     <- stringsim(cc_l, pc_l, method = "jw")
-      score    <- containment + 0.30 * affinity + 0.10 * nsim + 0.05 * exact
-      key      <- paste0(ct, "", cc$col)
+      score    <- containment + 0.30 * affinity + 0.05 * exact
+      key      <- paste(ct, cc$col, sep = "\r")
       if (is.null(best[[key]]) || score > best[[key]]$score)
         best[[key]] <- list(table_from = ct, col_from = cc$col,
                             table_to = pk$table, col_to = pk$col, score = score)
