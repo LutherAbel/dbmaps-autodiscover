@@ -47,7 +47,8 @@ con <- dbConnect(RSQLite::SQLite(), "data-raw/Chinook_Sqlite.sqlite")
 registry <- discover_metadata(con)        # -> a DBmaps MetadataRegistry
 ```
 
-Dependencies: `data.table`, `stringdist`, `DBI`, `RSQLite`, `DBmaps`. No ML runtime.
+Dependencies: `data.table`, `DBI`, `RSQLite`, `DBmaps`. No ML runtime, no `stringdist`
+(measured to change nothing — see `bench/eval_nostringdist.R`).
 
 ## How it works
 
@@ -71,6 +72,16 @@ Dependencies: `data.table`, `stringdist`, `DBI`, `RSQLite`, `DBmaps`. No ML runt
 See [`DESIGN.md`](DESIGN.md) for the full design note and critique, and
 [`eval_log.md`](eval_log.md) for the iteration-by-iteration measured history.
 
+## Repository layout
+
+| path | what |
+|------|------|
+| `R/` | the module: `discover.R` (detection), `metadata.R` (registry), plus the measurement floor (`evaluate.R`, `groundtruth.R`, `baselines.R`) |
+| `tests/` | TDD specs — `Rscript tests/run_all.R` |
+| `bench/` | every script behind a number in `eval_log.md`: `scalability.R`, `eval_perdb.R`, `eval_nostringdist.R`, `eval_review_round.R`, `diagnose.R` (FP/FN dump) |
+| `reproducer.R` | self-contained reproducer for the upstream BLOB bug (below) |
+| `run_eval.R`, `verify_registry.R`, `run_iter0.R` | top-level reproduction entry points |
+
 ## Upstream finding
 
 `map_join_paths(registry, data_list = ...)` fails with **`Error: Unsupported type raw`**
@@ -78,7 +89,7 @@ on any database containing BLOB columns (e.g. Northwind's `Employees$Photo`): DB
 returns BLOBs as `blob` class columns (vctrs-based), and `unique()`/`anyDuplicated()` in
 the scanner dispatch to vctrs methods that do not support the raw type. This makes the
 data-driven mode unusable on such databases. A self-contained reproducer is in
-[`scratch/reproducer.R`](scratch/reproducer.R); a type guard (`is.list(col) -> skip`)
+[`reproducer.R`](reproducer.R); a type guard (`is.list(col) -> skip`)
 fixes it. This module's metadata path is unaffected.
 
 (An earlier note here reported a segfault; that turned out to be an artifact of our own

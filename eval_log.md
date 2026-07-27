@@ -58,7 +58,7 @@ Self-references link via parent *column* only (not parent table); add table-name
 affinity to pick the right parent (`store_id`→`store`, not `staff`).
 
 POOLED: `autodiscover` precision=**1.000**, recall=**0.848** (TP=39 FP=0 FN=7).
-Per-DB (measured 2026-07-07, `scratch/eval_perdb.R`): chinook 1.000/0.818 ·
+Per-DB (measured 2026-07-07, `bench/eval_perdb.R`): chinook 1.000/0.818 ·
 sakila 1.000/0.955 · northwind 1.000/0.692. (An earlier version of this line
 mis-stated sakila recall as 0.864, carried over from Iteration 2.)
 
@@ -66,7 +66,7 @@ mis-stated sakila recall as 0.864, carried over from Iteration 2.)
 Replacing the Jaro-Winkler tie-break (`0.10*nsim`) with 0: POOLED precision=1.000,
 recall=0.848 (TP=39 FP=0 FN=7) — identical to the stringdist version, per-DB identical
 too. `stringdist` is therefore droppable for the upstream PR (DBmaps Imports stays
-data.table-only). Script: `scratch/eval_nostringdist.R`.
+data.table-only). Script: `bench/eval_nostringdist.R`.
 Remaining 7 FN are undiscoverable from values: semantic synonyms
 (`supportrepid`,`reportsto`,`shipvia`), all-NULL `original_language_id`, empty Northwind
 demo tables. **Accuracy criteria met.**
@@ -91,7 +91,7 @@ demo tables. **Accuracy criteria met.**
 ## Upstream finding (corrected 2026-07-07)
 `map_join_paths(registry, data_list=...)` throws `Error: Unsupported type raw` on BLOB
 columns (RSQLite `blob`/vctrs list-columns; `unique()`/`anyDuplicated()` dispatch to
-vctrs, which rejects raw). Deterministic; reproducer in `scratch/reproducer.R`. Our
+vctrs, which rejects raw). Deterministic; reproducer in `reproducer.R`. Our
 Mode-1 registry path is unaffected.
 The previously-logged segfault (exit 139) was bisected to our own invocation method
 (multi-line `Rscript -e` on Windows segfaults before executing user code: a pure
@@ -107,7 +107,7 @@ hatch (case-insensitive; opens the name gate only, containment still decides),
 underscore-boundary link for short parent keys (chosen over relaxing the bare-suffix
 gate to >=3, which would let `liquid` match `uid`).
 
-Measured (`scratch/eval_review_round.R`):
+Measured (`bench/eval_review_round.R`):
 - No aliases (regression): POOLED prec=1.000 recall=0.848 — identical to before.
 - With `list(reportsto="employeeid", supportrepid="employeeid", shipvia="shipperid")`:
   POOLED prec=**1.000** recall=**0.935** (TP=43 FP=0 FN=3). Chinook now 1.000/1.000.

@@ -7,3 +7,7 @@ data-raw/*.db
 .RData
 .Rproj.user
 *.Rout
+
+# local debugging scratch (not part of the deliverable)
+scratch/
+*.log

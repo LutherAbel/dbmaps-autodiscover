@@ -1,6 +1,6 @@
 # Measure the review-round changes: (a) regression check without aliases,
 # (b) recall gain with a 3-entry alias map for the semantic FK names.
-root <- "."
+root <- Sys.getenv("DBMAPS_ROOT", ".")
 source(file.path(root, "R", "groundtruth.R"))
 source(file.path(root, "R", "evaluate.R"))
 source(file.path(root, "R", "discover.R"))

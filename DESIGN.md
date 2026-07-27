@@ -40,7 +40,7 @@ Ground truth = declared FKs of Chinook + Sakila + Northwind (40 tables, 46 FK pa
 
 **Success criteria:** prec>0.90 ✓ · recall>0.80 ✓ · effort>70% ✓ · 100+ tables in budget ✓ ·
 passes into `map_join_paths()` ✓ · one command ✓ · deps in budget ✓
-(`data.table`, `stringdist`, `DBI`, `RSQLite` — no ML runtime).
+(`data.table`, `DBI`, `RSQLite` — no ML runtime; `stringdist` dropped, measured no-op).
 
 ## Mandatory critique (assume it's flawed)
 1. **Weakest component:** the name-link gate. It is the whole basis of precision, so it
@@ -72,7 +72,7 @@ passes into `map_join_paths()` ✓ · one command ✓ · deps in budget ✓
 database with BLOB columns: RSQLite returns BLOBs as `blob` class (vctrs) list-columns,
 and the scanner's `unique()`/`anyDuplicated()` dispatch to vctrs methods that do not
 support raw. Mode 2 is therefore unusable on such databases (e.g. Northwind via
-`Employees$Photo`). Self-contained reproducer: `scratch/reproducer.R`; two-line core:
+`Employees$Photo`). Self-contained reproducer: `reproducer.R`; two-line core:
 `anyDuplicated(blob::blob(as.raw(1:4)))`. Fix confirmed: skip list columns in the scanner.
 This module's Mode-1 registry path is unaffected.
 
