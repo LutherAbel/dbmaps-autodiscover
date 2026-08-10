@@ -117,6 +117,27 @@ Found during measurement: alias lookup was initially case-sensitive and silently
 failed on real CamelCase columns (`ReportsTo`) — caught only because the benchmark
 runs on real databases, not just unit fixtures. Fixed + locked with a CamelCase test.
 
+## Review round 2 (2026-07-07) — prefix id naming
+
+Maintainer reported two edge cases. This entry covers the second (prefix id
+conventions); the composite-key case is not yet addressed.
+
+Cause: the id regex was end-anchored (`^id$`, `_id$`, `[a-z0-9]id$`), so `id_user` /
+`idCustomer` never qualified. Impact was wider than "no PK found": since id-detection
+also gates parent-key candidacy, a schema using the convention throughout produced an
+**empty registry** (measured: `Users(id_user)` + `Posts(id_post, id_user)` → 0 rows,
+both tables skipped).
+
+Fix: added `^id_` (on the lowercased name) and `^[Ii][Dd][A-Z][a-z]` (on the original,
+for camelCase). The boundary requirement is what keeps `identity` / `ideal` / `idle` /
+`IDENTITY` out — same class of trap as `liquid` vs `uid` last round. Also added
+`id_<entity>` to the table-affinity forms and identifier preference scoring.
+
+Regression measured after the change (`run_eval.R`, `bench/eval_review_round.R`):
+POOLED precision=**1.000** recall=**0.848**; with aliases **1.000 / 0.935**; effort
+94.1%; criterion 5 PASS — all identical to before, so the widened id gate produced no
+new false positives on the ground-truth databases.
+
 ## STOP — all success criteria met by measurement (stopping rule #1).
 prec 1.000>0.90 · recall 0.848>0.80 · effort 94.1%>70% · 100+ tbl in budget ·
 passes map_join_paths · one command · deps in budget (no ML runtime).

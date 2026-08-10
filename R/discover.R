@@ -12,7 +12,13 @@ suppressMessages(library(data.table))
   data.table(table_from = character(), col_from = character(),
              table_to = character(), col_to = character())
 
-.looks_like_id <- function(col) grepl("(^id$)|(_id$)|([a-z0-9]id$)", tolower(col))
+# Suffix forms (id, *_id, <entity>Id) plus prefix forms (id_<entity>,
+# id<Entity>). Prefix forms need a boundary or ordinary words (identity, ideal,
+# idle) would qualify: an underscore, or "ID" + uppercase + lowercase.
+.looks_like_id <- function(col) {
+  grepl("(^id$)|(_id$)|([a-z0-9]id$)|(^id_)", tolower(col)) ||
+    grepl("^[Ii][Dd][A-Z][a-z]", col)
+}
 
 # Dictionary-free singularization: ies -> y, sibilant + es, plain s.
 .singularize <- function(x) {
@@ -29,7 +35,7 @@ suppressMessages(library(data.table))
   if (nchar(pc) >= 2 && endsWith(cc, paste0("_", pc))) return(TRUE)  # _uid form
   if (same_table) return(FALSE)
   ent <- .singularize(parent_table)
-  forms <- c(paste0(ent, "id"), paste0(ent, "_id"))
+  forms <- c(paste0(ent, "id"), paste0(ent, "_id"), paste0("id_", ent))
   if (cc %in% forms) return(TRUE)
   any(nchar(forms) >= 5 & vapply(forms, function(f) endsWith(cc, f), logical(1)))
 }
